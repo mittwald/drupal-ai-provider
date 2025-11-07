@@ -1,0 +1,7 @@
+ai_provider_mittwald.settings_form:
+  path: '/admin/config/ai/providers/mittwald'
+  defaults:
+    _form: '\Drupal\ai_provider_mittwald\Form\MittwaldConfigForm'
+    _title: 'Setup mittwald Authentication'
+  requirements:
+    _permission: 'administer ai providers'

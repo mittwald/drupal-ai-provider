@@ -1,0 +1,5 @@
+ai_provider_mittwald.settings_menu:
+  title: "mittwald Authentication"
+  description: "Setup mittwald"
+  route_name: ai_provider_mittwald.settings_form
+  parent: ai.admin_providers

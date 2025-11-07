@@ -1,0 +1,13 @@
+name: mittwald Provider
+description: This enables the use of mittwald for the AI module.
+package: AI Providers
+type: module
+core_version_requirement: ^10.3 || ^11
+configure: ai_provider_mittwald.settings_form
+
+dependencies:
+  - ai:ai
+
+version: '1.0.0'
+project: 'ai_provider_mittwald'
+datestamp: 1760354155
