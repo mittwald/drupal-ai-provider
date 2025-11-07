@@ -17,19 +17,8 @@ class MittwaldHelper
 
     use StringTranslationTrait;
 
-    /**
-     * The config factory service.
-     */
     protected ConfigFactoryInterface $configFactory;
 
-    /**
-     * Constructor.
-     *
-     * @param \Drupal\Core\Messenger\MessengerInterface $messenger
-     *   The messenger service.
-     * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
-     *   The config factory service.
-     */
     public function __construct(
         private readonly MessengerInterface $messenger,
         ConfigFactoryInterface              $config_factory,

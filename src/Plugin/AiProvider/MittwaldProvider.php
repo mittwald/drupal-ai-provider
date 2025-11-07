@@ -111,101 +111,12 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
      */
     public function getModelSettings(string $model_id, array $generalConfig = []): array
     {
-        // If its GPT 3.5 the max tokens are 2048.
-        if (preg_match('/gpt-3.5-turbo/', $model_id)) {
-            $generalConfig['max_tokens']['default'] = 2048;
-        }
-        // Do this change for o1, o3 and gpt-5 models.
-        if (str_starts_with($model_id, 'gpt-5') || str_starts_with($model_id, 'o1') || str_starts_with($model_id, 'o3')) {
-            if (array_key_exists('max_tokens', $generalConfig)) {
-                $generalConfig['max_completion_tokens'] = $generalConfig['max_tokens'];
-                unset($generalConfig['max_tokens']);
-            }
-        }
-        // Handle image generation models.
-        if (($model_id == 'dall-e-3') || strpos($model_id, 'gpt-image') === 0) {
-            $generalConfig['quality'] = [
-                'label'       => 'Quality',
-                'description' => 'The quality of the images that will be generated.',
-                'type'        => 'string',
-                'required'    => true,
-                'default'     => 'standard',
-            ];
-        }
-
-        // Handle GPT Image models.
-        if (strpos($model_id, 'gpt-image') === 0) {
-            $generalConfig['quality']['default']             = 'auto';
-            $generalConfig['quality']['constraints']         = [
-                'options' => [
-                    'auto',
-                    'low',
-                    'medium',
-                    'high',
-                ],
-            ];
-            $generalConfig['size']['default']                = '1024x1024';
-            $generalConfig['size']['constraints']['options'] = [
-                '1024x1024',
-                '1024x1536',
-                '1536x1024',
-                '1024x1792',
-                '1792x1024',
-            ];
-            // GPT Image 1 uses output_format instead of response_format.
-            $generalConfig['output_format'] = [
-                'label'       => 'Output Format',
-                'description' => 'The format in which the generated images will be created.',
-                'type'        => 'string',
-                'default'     => 'png',
-                'required'    => false,
-                'constraints' => [
-                    'options' => [
-                        'png',
-                        'jpeg',
-                        'webp',
-                    ],
-                ],
-            ];
-            // Remove response_format as it's not supported.
-            unset($generalConfig['response_format']);
-        } elseif ($model_id == 'dall-e-3') {
-            $generalConfig['quality']['constraints'] = [
-                'options' => [
-                    'hd',
-                    'standard',
-                ],
-            ];
-
-            $generalConfig['size']['default']                = '1024x1024';
-            $generalConfig['size']['constraints']['options'] = [
-                '1024x1024',
-                '1024x1792',
-                '1792x1024',
-            ];
-            $generalConfig['style']                          = [
-                'label'       => 'Style',
-                'description' => 'The style of the images that will be generated.',
-                'type'        => 'string',
-                'default'     => 'vivid',
-                'required'    => false,
-                'constraints' => [
-                    'options' => [
-                        'vivid',
-                        'natural',
-                    ],
-                ],
-            ];
-        }
-
-        if ($model_id == 'text-embedding-3-large') {
-            $generalConfig['dimensions']['default'] = 3072;
+        if ($model_id == 'Qwen3-Embedding-8B') {
+            $generalConfig['dimensions']['default'] = 4096;
         }
 
         // @todo move this to an object once supported.
         if ($this->isReasoningModel($model_id)) {
-
-            // See https://platform.openai.com/docs/api-reference/chat/create#chat_create-reasoning_effort.
             $generalConfig['reasoning_effort'] = [
                 'type'        => 'select',
                 'label'       => 'Reasoning Effort',
@@ -223,22 +134,6 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
         }
 
         return $generalConfig;
-    }
-
-    /**
-     * Enables moderation response, for all next coming responses.
-     */
-    public function enableModeration(): void
-    {
-        $this->moderation = true;
-    }
-
-    /**
-     * Disables moderation response, for all next coming responses.
-     */
-    public function disableModeration(): void
-    {
-        $this->moderation = false;
     }
 
     /**
@@ -275,7 +170,7 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
     /**
      * {@inheritdoc}
      */
-    public function chat(array|string|ChatInput $input, string $model_id, array $tags = []): ChatOutput
+    public function _zzzdisabled_chat(array|string|ChatInput $input, string $model_id, array $tags = []): ChatOutput
     {
         $this->loadClient();
         // Normalize the input if needed.
@@ -446,18 +341,7 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
      */
     public function moderation(string|ModerationInput $input, ?string $model_id = null, array $tags = []): ModerationOutput
     {
-        $this->loadClient();
-        // Normalize the prompt if needed.
-        if ($input instanceof ModerationInput) {
-            $input = $input->getPrompt();
-        }
-        $payload    = [
-                'model' => $model_id ?? 'omni-moderation-latest',
-                'input' => $input,
-            ] + $this->configuration;
-        $response   = $this->client->moderations()->create($payload)->toArray();
-        $normalized = new ModerationResponse($response['results'][0]['flagged'], $response['results'][0]['category_scores']);
-        return new ModerationOutput($normalized, $response, []);
+        throw new \Exception("not implemented");
     }
 
     /**
@@ -465,86 +349,7 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
      */
     public function textToImage(string|TextToImageInput $input, string $model_id, array $tags = []): TextToImageOutput
     {
-        $this->loadClient();
-        // Normalize the input if needed.
-        if ($input instanceof TextToImageInput) {
-            $input = $input->getText();
-        }
-        // Moderation.
-        $this->moderationEndpoints($input);
-        // Handle parameter naming differences between models.
-        $payload = [
-                'model'  => $model_id,
-                'prompt' => $input,
-            ] + $this->configuration;
-
-        try {
-            $response = $this->client->images()->create($payload)->toArray();
-        } catch (\Exception $e) {
-            // Try to figure out rate limit issues.
-            if (strpos($e->getMessage(), 'Request too large') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            if (strpos($e->getMessage(), 'Too Many Requests') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            // Try to figure out quota issues.
-            if (strpos($e->getMessage(), 'You exceeded your current quota') !== false) {
-                throw new AiQuotaException($e->getMessage());
-            } else {
-                throw $e;
-            }
-        }
-        $images = [];
-
-        if (empty($response['data'][0])) {
-            throw new AiResponseErrorException('No image data found in the response.');
-        }
-        // Process the image response.
-        foreach ($response['data'] as $data) {
-            // Check if this is a gpt-image-1 response.
-            $is_gpt_image = strpos($model_id, 'gpt-image') === 0 || isset($data['revised_prompt']);
-
-            if (isset($data['b64_json'])) {
-                // Determine image type based on output_format if available.
-                $mime_type = 'image/png';
-                $file_ext  = 'png';
-                if (isset($payload['output_format'])) {
-                    switch ($payload['output_format']) {
-                        case 'jpeg':
-                            $mime_type = 'image/jpeg';
-                            $file_ext  = 'jpeg';
-                            break;
-
-                        case 'webp':
-                            $mime_type = 'image/webp';
-                            $file_ext  = 'webp';
-                            break;
-                    }
-                }
-                $images[] = new ImageFile(base64_decode($data['b64_json']), $mime_type, ($is_gpt_image ? 'gpt-image' : 'dalle') . '.' . $file_ext);
-            } // Try url if b64_json is not available.
-            elseif (isset($data['url']) && !empty($data['url'])) {
-                try {
-                    $image_content = file_get_contents($data['url']);
-                    if ($image_content !== false) {
-                        $images[] = new ImageFile($image_content, 'image/png', ($is_gpt_image ? 'gpt-image' : 'dalle') . '.png');
-                    } else {
-                        $this->logger->error('Failed to fetch image from URL: @url', ['@url' => $data['url']]);
-                    }
-                } catch (\Exception $e) {
-                    $this->logger->error('Error fetching image URL: @error', ['@error' => $e->getMessage()]);
-                }
-            } else {
-                $this->logger->error('No valid image data found in response');
-            }
-        }
-
-        // If no images were successfully created, throw an error.
-        if (empty($images)) {
-            throw new AiResponseErrorException('Failed to process any valid images from the API response.');
-        }
-        return new TextToImageOutput($images, $response, []);
+        throw new \Exception("not implemented");
     }
 
     /**
@@ -552,39 +357,7 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
      */
     public function textToSpeech(string|TextToSpeechInput $input, string $model_id, array $tags = []): TextToSpeechOutput
     {
-        $this->loadClient();
-        // Normalize the input if needed.
-        if ($input instanceof TextToSpeechInput) {
-            $input = $input->getText();
-        }
-        // Moderation.
-        $this->moderationEndpoints($input);
-        // Send the request.
-        $payload = [
-                'model' => $model_id,
-                'input' => $input,
-            ] + $this->configuration;
-        try {
-            $response = $this->client->audio()->speech($payload);
-        } catch (\Exception $e) {
-            // Try to figure out rate limit issues.
-            if (strpos($e->getMessage(), 'Request too large') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            if (strpos($e->getMessage(), 'Too Many Requests') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            // Try to figure out quota issues.
-            if (strpos($e->getMessage(), 'You exceeded your current quota') !== false) {
-                throw new AiQuotaException($e->getMessage());
-            } else {
-                throw $e;
-            }
-        }
-        $output = new AudioFile($response, 'audio/mpeg', 'mittwald.mp3');
-
-        // Return a normalized response.
-        return new TextToSpeechOutput([$output], $response, []);
+        throw new \Exception("not implemented");
     }
 
     /**
@@ -592,75 +365,7 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
      */
     public function speechToText(string|SpeechToTextInput $input, string $model_id, array $tags = []): SpeechToTextOutput
     {
-        $this->loadClient();
-        // Normalize the input if needed.
-        if ($input instanceof SpeechToTextInput) {
-            $input = $input->getBinary();
-        }
-        // The raw file has to become a resource, so we save a temporary file first.
-        $path    = $this->fileSystem->saveData($input, 'temporary://speech_to_text.mp3', FileExists::Replace);
-        $input   = fopen($path, 'r');
-        $payload = [
-                'model' => $model_id,
-                'file'  => $input,
-            ] + $this->configuration;
-        try {
-            $response = $this->client->audio()->transcribe($payload)->toArray();
-        } catch (\Exception $e) {
-            // Try to figure out rate limit issues.
-            if (strpos($e->getMessage(), 'Request too large') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            if (strpos($e->getMessage(), 'Too Many Requests') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            // Try to figure out quota issues.
-            if (strpos($e->getMessage(), 'You exceeded your current quota') !== false) {
-                throw new AiQuotaException($e->getMessage());
-            } else {
-                throw $e;
-            }
-        }
-
-        return new SpeechToTextOutput($response['text'], $response, []);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function embeddings(string|EmbeddingsInput $input, string $model_id, array $tags = []): EmbeddingsOutput
-    {
-        $this->loadClient();
-        // Normalize the input if needed.
-        if ($input instanceof EmbeddingsInput) {
-            $input = $input->getPrompt();
-        }
-        // Moderation.
-        $this->moderationEndpoints($input);
-        // Send the request.
-        $payload = [
-                'model' => $model_id,
-                'input' => $input,
-            ] + $this->configuration;
-        try {
-            $response = $this->client->embeddings()->create($payload)->toArray();
-        } catch (\Exception $e) {
-            // Try to figure out rate limit issues.
-            if (strpos($e->getMessage(), 'Request too large') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            if (strpos($e->getMessage(), 'Too Many Requests') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            // Try to figure out quota issues.
-            if (strpos($e->getMessage(), 'You exceeded your current quota') !== false) {
-                throw new AiQuotaException($e->getMessage());
-            } else {
-                throw $e;
-            }
-        }
-
-        return new EmbeddingsOutput($response['data'][0]['embedding'], $response, []);
+        throw new \Exception("not implemented");
     }
 
     /**
@@ -671,16 +376,16 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
         return [
             'key_config_name' => 'api_key',
             'default_models'  => [
-                'chat'                          => 'gpt-4.1',
-                'chat_with_image_vision'        => 'gpt-4.1',
-                'chat_with_complex_json'        => 'gpt-4.1',
-                'chat_with_tools'               => 'gpt-4.1',
-                'chat_with_structured_response' => 'gpt-4.1',
-                'text_to_image'                 => 'dall-e-3',
-                'embeddings'                    => 'text-embedding-3-small',
-                'moderation'                    => 'omni-moderation-latest',
-                'text_to_speech'                => 'tts-1-hd',
-                'speech_to_text'                => 'whisper-1',
+                'chat'                          => 'Mistral-Small-3.2-24B-Instruct',
+                'chat_with_image_vision'        => 'Mistral-Small-3.2-24B-Instruct',
+                'chat_with_complex_json'        => 'Mistral-Small-3.2-24B-Instruct',
+                'chat_with_tools'               => 'Mistral-Small-3.2-24B-Instruct',
+                'chat_with_structured_response' => 'Mistral-Small-3.2-24B-Instruct',
+                'embeddings'                    => 'Qwen3-Embedding-8B',
+//                'text_to_image'                 => 'dall-e-3',
+//                'moderation'                    => 'omni-moderation-latest',
+//                'text_to_speech'                => 'tts-1-hd',
+//                'speech_to_text'                => 'whisper-1',
             ],
         ];
     }
@@ -699,50 +404,10 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
      */
     public function embeddingsVectorSize(string $model_id): int
     {
-        return match ($model_id) {
-            'text-embedding-ada-002', 'text-embedding-3-small' => 1536,
-            'text-embedding-3-large' => 3072,
+        return match (strtolower($model_id)) {
+            'qwen3-embedding-8b' => 4096,
             default => 0,
         };
-    }
-
-    /**
-     * Moderation endpoints to run before the normal call.
-     *
-     * @throws \Drupal\ai\Exception\AiUnsafePromptException
-     */
-    public function moderationEndpoints(string $prompt): void
-    {
-        $this->getClient();
-        // If moderation is disabled, we skip this.
-        if (!$this->moderation) {
-            return;
-        }
-        $payload = [
-                'model' => 'omni-moderation-latest',
-                'input' => $prompt,
-            ] + $this->configuration;
-        try {
-            $response = $this->client->moderations()->create($payload)->toArray();
-        } catch (\Exception $e) {
-            // Try to figure out rate limit issues.
-            if (strpos($e->getMessage(), 'Request too large') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            if (strpos($e->getMessage(), 'Too Many Requests') !== false) {
-                throw new AiRateLimitException($e->getMessage());
-            }
-            // Try to figure out quota issues.
-            if (strpos($e->getMessage(), 'You exceeded your current quota') !== false) {
-                throw new AiQuotaException($e->getMessage());
-            } else {
-                throw $e;
-            }
-        }
-
-        if (!empty($response['results'][0]['flagged'])) {
-            throw new AiUnsafePromptException('The prompt was flagged by the moderation model.');
-        }
     }
 
     /**
@@ -780,7 +445,6 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
             // Basic model type filtering based on operation type.
             switch ($operation_type) {
                 case 'chat':
-                    // Include all GPT models for chat operations.
                     if (!preg_match('/^(gpt-oss|mistral-small-|qwen3-coder-)/i', $model['id'])) {
                         continue 2;
                     }
@@ -835,11 +499,6 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
             }
 
             $models[$model['id']] = $model['id'];
-        }
-
-        if ($operation_type == 'moderation') {
-            $models['text-moderation-latest'] = 'text-moderation-latest';
-            $models['omni-moderation-latest'] = 'omni-moderation-latest';
         }
 
         if (!empty($models)) {

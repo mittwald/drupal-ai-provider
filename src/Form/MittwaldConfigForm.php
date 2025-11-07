@@ -4,14 +4,12 @@ namespace Drupal\ai_provider_mittwald\Form;
 
 use Drupal\ai\AiProviderPluginManager;
 use Drupal\ai_provider_mittwald\MittwaldHelper;
+use Drupal\ai_provider_mittwald\Plugin\AiProvider\MittwaldProvider;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\key\KeyRepositoryInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-/**
- * Configure mittwald API access.
- */
 class MittwaldConfigForm extends ConfigFormBase
 {
 
@@ -27,6 +25,8 @@ class MittwaldConfigForm extends ConfigFormBase
 
     /**
      * Constructs a new MittwaldConfigForm object.
+     *
+     * @noinspection PhpMissingParentConstructorInspection
      */
     final public function __construct(
         private readonly AiProviderPluginManager $aiProviderManager,
@@ -81,16 +81,6 @@ class MittwaldConfigForm extends ConfigFormBase
             '#required'      => true,
         ];
 
-        $form['advanced'] = [
-            '#type'  => 'details',
-            '#title' => $this->t('Advanced settings'),
-            '#open'  => false,
-        ];
-
-        $form['advanced']['moderation'] = [
-            '#markup' => '<p>' . $this->t('Moderation is always on by default for any text based call. You can disable it for each request either via code or by changing manually in ai_provider_mittwald.settings.yml.') . '</p>',
-        ];
-
         return parent::buildForm($form, $form_state);
     }
 
@@ -110,7 +100,8 @@ class MittwaldConfigForm extends ConfigFormBase
             $form_state->setErrorByName('api_key', $this->t('The API key is invalid. Please double-check that the selected key has a value. If you are using a file-based Key, ensure the file is present in the environment and contains a value.'));
             return;
         }
-        /** @var \Drupal\ai_provider_mittwald\Plugin\AiProvider\MittwaldProvider $provider */
+
+        /** @var MittwaldProvider $provider */
         $provider = $this->aiProviderManager->createInstance('mittwald');
 
         // Temporarily set the API key and host for validation.
@@ -135,8 +126,10 @@ class MittwaldConfigForm extends ConfigFormBase
     public function submitForm(array &$form, FormStateInterface $form_state)
     {
         $api_key = $this->keyRepository->getKey($form_state->getValue('api_key'))->getKeyValue();
+
         // If it all passed through, we do one last check of rate limits via chat.
         $this->mittwaldHelper->testRateLimit($api_key);
+
         // Retrieve the configuration.
         $this->config(static::CONFIG_NAME)
             ->set('api_key', $form_state->getValue('api_key'))
