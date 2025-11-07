@@ -7,20 +7,16 @@ use Drupal\ai\Base\OpenAiBasedProviderClientBase;
 use Drupal\ai\Enum\AiModelCapability;
 use Drupal\ai\Exception\AiQuotaException;
 use Drupal\ai\Exception\AiRateLimitException;
-use Drupal\ai\Exception\AiResponseErrorException;
 use Drupal\ai\Exception\AiSetupFailureException;
-use Drupal\ai\Exception\AiUnsafePromptException;
 use Drupal\ai\OperationType\Chat\ChatInput;
 use Drupal\ai\OperationType\Chat\ChatMessage;
 use Drupal\ai\OperationType\Chat\ChatOutput;
 use Drupal\ai\OperationType\Chat\Tools\ToolsFunctionOutput;
 use Drupal\ai\OperationType\Embeddings\EmbeddingsInput;
 use Drupal\ai\OperationType\Embeddings\EmbeddingsOutput;
-use Drupal\ai\OperationType\GenericType\AudioFile;
 use Drupal\ai\OperationType\GenericType\ImageFile;
 use Drupal\ai\OperationType\Moderation\ModerationInput;
 use Drupal\ai\OperationType\Moderation\ModerationOutput;
-use Drupal\ai\OperationType\Moderation\ModerationResponse;
 use Drupal\ai\OperationType\SpeechToText\SpeechToTextInput;
 use Drupal\ai\OperationType\SpeechToText\SpeechToTextOutput;
 use Drupal\ai\OperationType\TextToImage\TextToImageInput;
@@ -32,7 +28,6 @@ use Drupal\ai_provider_mittwald\MittwaldChatMessageIterator;
 use Drupal\ai_provider_mittwald\MittwaldHelper;
 use Drupal\Component\Serialization\Json;
 use Drupal\Component\Utility\Crypt;
-use Drupal\Core\File\FileExists;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use OpenAI\Client;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -109,7 +104,9 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
     public function getModelSettings(string $model_id, array $generalConfig = []): array
     {
         if ($model_id == 'Qwen3-Embedding-8B') {
-            $generalConfig['dimensions']['default'] = 4096;
+            // NOTE: DO NOT set dimensions for the Qwen3-Embedding-8B model here,
+            // as this will confuse the model, even if the dimensions are correct.
+            // $generalConfig['dimensions']['default'] = 4096;
         }
 
         // @todo move this to an object once supported.
@@ -163,6 +160,33 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
             throw new AiSetupFailureException('Failed to initialize mittwald client: ' . $e->getMessage(), $e->getCode(), $e);
         }
     }
+
+    public function embeddings(EmbeddingsInput|string $input, string $model_id, array $tags = []): EmbeddingsOutput
+    {
+        $this->loadClient();
+
+        if ($input instanceof EmbeddingsInput) {
+            $input = $input->getPrompt();
+        }
+
+        $payload = [
+                'model' => $model_id,
+                'input' => $input,
+            ] + $this->configuration;
+
+        if ($model_id === 'Qwen3-Embedding-8B') {
+            unset($payload['dimensions']);
+        }
+
+        try {
+            $response = $this->client->embeddings()->create($payload)->toArray();
+            return new EmbeddingsOutput($response['data'][0]['embedding'], $response, []);
+        } catch (\Exception $e) {
+            $this->handleApiException($e);
+            throw $e;
+        }
+    }
+
 
     /**
      * {@inheritdoc}
