@@ -100,9 +100,6 @@ class MittwaldProvider extends OpenAiBasedProviderClientBase
             'chat',
             'embeddings',
             'moderation',
-            'text_to_image',
-            'text_to_speech',
-            'speech_to_text',
         ];
     }
 
