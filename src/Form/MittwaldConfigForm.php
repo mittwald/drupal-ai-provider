@@ -3,6 +3,7 @@
 namespace Drupal\ai_provider_mittwald\Form;
 
 use Drupal\ai\AiProviderPluginManager;
+use Drupal\ai\Plugin\ProviderProxy;
 use Drupal\ai_provider_mittwald\MittwaldHelper;
 use Drupal\ai_provider_mittwald\Plugin\AiProvider\MittwaldProvider;
 use Drupal\Core\Form\ConfigFormBase;

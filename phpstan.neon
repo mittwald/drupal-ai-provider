@@ -2,13 +2,11 @@
 # ignore errors applicable to this project rather than all errors ignored
 # from Core as phpstan throws errors when ignore lines here are unused.
 
-# Configuration file for PHPStan static code checking, see https://phpstan.org .
-# PHPStan is triggered on Drupal CI in commit-code-check.sh.
 includes:
   - phar://phpstan.phar/conf/bleedingEdge.neon
 
 parameters:
-  level: 1
+  level: 2
 
   paths:
     - src
@@ -21,3 +19,11 @@ parameters:
     - module
     - inc
     - install
+
+  ignoreErrors:
+    - identifier: varTag.nativeType
+      message: '#is not subtype of native type Drupal\\ai\\Plugin\\ProviderProxy#'
+
+    # No fucking clue why this occurs with these specific three classes
+    - identifier: class.notFound
+      message: '#has invalid type Drupal\\ai\\Operation\\(TextToImage|TextToSpeech|SpeechToText)\\\1Input#'
