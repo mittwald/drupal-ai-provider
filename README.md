@@ -6,14 +6,14 @@ A Drupal module that integrates [mittwald AI Hosting](https://developer.mittwald
 
 This module provides a mittwald provider implementation for the [Drupal AI module](https://www.drupal.org/project/ai), allowing you to leverage mittwald's AI hosting platform for various AI operations including chat completions, embeddings, and more.
 
-**Credit**: This module was forked from the [`ai_provider_openai`](https://www.drupal.org/project/ai) module and adapted for mittwald's AI hosting platform, which uses an OpenAI-compatible API.
+**Credit**: This module was forked from the [`ai_provider_openai`](https://www.drupal.org/project/ai_provider_openai) module and adapted for mittwald's AI hosting platform, which uses an OpenAI-compatible API.
 
 ## Requirements
 
 - Drupal 10.3+ or Drupal 11+
 - [AI module](https://www.drupal.org/project/ai) (^1.2.0)
 - [Key module](https://www.drupal.org/project/key) (^1.18)
-- A mittwald AI Hosting account with API access
+- A [mittwald AI Hosting](https://www.mittwald.de/mstudio/ai-hosting) account with API access
 
 ## Installation
 
