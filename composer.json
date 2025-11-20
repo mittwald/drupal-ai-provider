@@ -17,5 +17,8 @@
     "allow-plugins": {
       "php-http/discovery": false
     }
+  },
+  "require-dev": {
+    "phpstan/phpstan": "^2.1"
   }
 }
