@@ -11,6 +11,3 @@ grumphp:
                 - 'print_r\(.*\);*'
             regexp_type: P
             triggered_by: ['php','module','inc']
-    ascii:
-        succeeded: tests/assets/grumphp/success.txt
-        failed: tests/assets/grumphp/fail.txt
