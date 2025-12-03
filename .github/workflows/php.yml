@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        php-version: ['8.2', '8.3', '8.4']
+        php-version: ['8.2', '8.3', '8.4', '8.5']
 
     name: Static code analysis with PHP ${{ matrix.php-version }}
 
@@ -34,3 +34,27 @@ jobs:
 
     - name: Run PHPStan
       run: vendor/bin/phpstan analyse
+
+  codestyle:
+    runs-on: ubuntu-latest
+
+    name: Code style checking
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: "8.5"
+        coverage: none
+
+    - name: Validate composer.json
+      run: composer validate --strict
+
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress
+
+    - name: Run PHPStan
+      run: vendor/bin/grumphp run
